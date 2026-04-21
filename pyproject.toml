@@ -1,0 +1,13 @@
+[project]
+name = "comfyui-image-selector"
+description = "ComfyUI 图片选择器节点 - 在工作流执行时弹出图片选择窗口，支持单选/多选"
+version = "1.0.0"
+license = "MIT"
+
+[project.urls]
+Repository = "https://github.com/your-username/comfyui-image_selete"
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "Image Selector"
+Icon = ""
