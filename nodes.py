@@ -194,6 +194,7 @@ class ImageSelector:
                 "sound_enabled": sound_enabled,
                 "sound_volume": sound_volume,
                 "sound_file": "din.wav",
+                "timeout": timeout,
             }
         )
         

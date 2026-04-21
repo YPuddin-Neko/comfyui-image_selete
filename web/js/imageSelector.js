@@ -108,6 +108,59 @@ const STYLES = `
     margin-right: 4px;
 }
 
+/* ===== 倒计时 ===== */
+.image-selector-countdown {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.image-selector-countdown-text {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    min-width: 50px;
+    text-align: right;
+}
+
+.image-selector-countdown-text.warning {
+    color: #ff9800;
+}
+
+.image-selector-countdown-text.danger {
+    color: #ff4444;
+    animation: isCountdownPulse 1s ease-in-out infinite;
+}
+
+@keyframes isCountdownPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.image-selector-countdown-bar {
+    width: 120px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}
+
+.image-selector-countdown-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #535cec, #7c4dff);
+    transition: width 1s linear, background 0.3s ease;
+}
+
+.image-selector-countdown-bar-fill.warning {
+    background: linear-gradient(90deg, #ff9800, #ffc107);
+}
+
+.image-selector-countdown-bar-fill.danger {
+    background: linear-gradient(90deg, #ff4444, #ff6b6b);
+}
+
 /* ===== 工具栏 ===== */
 .image-selector-toolbar {
     display: flex;
@@ -602,13 +655,16 @@ function playNotificationSound(soundFile, volume) {
 // 图片选择弹窗类
 // ============================
 class ImageSelectorDialog {
-    constructor(sessionId, totalImages, nodeId, soundEnabled, soundVolume, soundFile) {
+    constructor(sessionId, totalImages, nodeId, soundEnabled, soundVolume, soundFile, timeout) {
         this.sessionId = sessionId;
         this.totalImages = totalImages;
         this.nodeId = nodeId;
         this.soundEnabled = soundEnabled;
         this.soundVolume = soundVolume;
         this.soundFile = soundFile;
+        this.timeout = timeout || 300;
+        this.remainingTime = this.timeout;
+        this.countdownTimer = null;
         this.selectedIndices = new Set();
         this.images = [];
         this.overlay = null;
@@ -654,6 +710,9 @@ class ImageSelectorDialog {
         
         // 加载图片
         await this._loadImages();
+        
+        // 启动倒计时
+        this._startCountdown();
     }
 
     _createHeader() {
@@ -668,10 +727,71 @@ class ImageSelectorDialog {
             </div>
             <div class="image-selector-header-actions">
                 <span class="image-selector-mode-label">共 ${this.totalImages} 张图片</span>
+                <div class="image-selector-countdown">
+                    <div class="image-selector-countdown-bar">
+                        <div class="image-selector-countdown-bar-fill" id="is-countdown-bar" style="width: 100%;"></div>
+                    </div>
+                    <span class="image-selector-countdown-text" id="is-countdown-text">${this._formatTime(this.timeout)}</span>
+                </div>
             </div>
         `;
         
         return header;
+    }
+
+    _formatTime(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    _startCountdown() {
+        this.remainingTime = this.timeout;
+        const warningThreshold = Math.ceil(this.timeout * 0.3); // 剩余 30% 时变橙色
+        const dangerThreshold = Math.ceil(this.timeout * 0.1);  // 剩余 10% 时变红色
+        
+        this.countdownTimer = setInterval(() => {
+            this.remainingTime--;
+            
+            if (this.remainingTime <= 0) {
+                this._stopCountdown();
+                this._cancel(); // 超时自动取消
+                return;
+            }
+            
+            // 更新文字
+            const textEl = this.overlay?.querySelector("#is-countdown-text");
+            const barEl = this.overlay?.querySelector("#is-countdown-bar");
+            
+            if (textEl) {
+                textEl.textContent = this._formatTime(this.remainingTime);
+                textEl.className = "image-selector-countdown-text";
+                if (this.remainingTime <= dangerThreshold) {
+                    textEl.classList.add("danger");
+                } else if (this.remainingTime <= warningThreshold) {
+                    textEl.classList.add("warning");
+                }
+            }
+            
+            // 更新进度条
+            if (barEl) {
+                const pct = (this.remainingTime / this.timeout) * 100;
+                barEl.style.width = `${pct}%`;
+                barEl.className = "image-selector-countdown-bar-fill";
+                if (this.remainingTime <= dangerThreshold) {
+                    barEl.classList.add("danger");
+                } else if (this.remainingTime <= warningThreshold) {
+                    barEl.classList.add("warning");
+                }
+            }
+        }, 1000);
+    }
+
+    _stopCountdown() {
+        if (this.countdownTimer) {
+            clearInterval(this.countdownTimer);
+            this.countdownTimer = null;
+        }
     }
 
     _createToolbar() {
@@ -955,6 +1075,7 @@ class ImageSelectorDialog {
     }
 
     _close() {
+        this._stopCountdown();
         if (this.overlay) {
             this.overlay.style.animation = "isOverlayFadeIn 0.2s ease-out reverse";
             setTimeout(() => {
@@ -981,9 +1102,10 @@ app.registerExtension({
                 sound_enabled,
                 sound_volume,
                 sound_file,
+                timeout,
             } = event.detail;
             
-            console.log(`[Image Selector] 收到弹窗请求: session=${session_id}, images=${total_images}`);
+            console.log(`[Image Selector] 收到弹窗请求: session=${session_id}, images=${total_images}, timeout=${timeout}s`);
             
             const dialog = new ImageSelectorDialog(
                 session_id,
@@ -991,7 +1113,8 @@ app.registerExtension({
                 node_id,
                 sound_enabled,
                 sound_volume,
-                sound_file
+                sound_file,
+                timeout
             );
             
             dialog.show();
