@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-# comfyui-image_selete
-为comfyui添加一个图片选择器
-=======
 # 🖼️ ComfyUI Image Selector | 图片选择器
 
 一个 ComfyUI 自定义节点插件，在工作流执行时弹出精美的图片选择窗口，让你手动选择需要的图片以便进行接下来的工作流。
