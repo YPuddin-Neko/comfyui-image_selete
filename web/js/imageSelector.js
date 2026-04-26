@@ -1163,6 +1163,10 @@ app.registerExtension({
                 timeout,
             } = event.detail;
             
+            // 检查该节点是否属于当前工作流，防止多客户端/多标签页重复弹窗
+            const node = app.graph.getNodeById(node_id);
+            if (!node || node.comfyClass !== "ImageSelector") return;
+            
             console.log(`[Image Selector] 收到弹窗请求: session=${session_id}, images=${total_images}, timeout=${timeout}s`);
             
             const dialog = new ImageSelectorDialog(
@@ -1180,7 +1184,12 @@ app.registerExtension({
         
         // 监听中断原因消息，显示 toast 提示
         api.addEventListener("image_selector.interrupted", (event) => {
-            const { reason } = event.detail;
+            const { reason, node_id } = event.detail;
+            
+            // 检查该节点是否属于当前工作流
+            const node = app.graph.getNodeById(node_id);
+            if (!node || node.comfyClass !== "ImageSelector") return;
+            
             console.log(`[Image Selector] 工作流中断: ${reason}`);
             showToast(reason);
         });
