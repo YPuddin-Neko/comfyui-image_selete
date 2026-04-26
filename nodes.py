@@ -207,6 +207,10 @@ class ImageSelector:
             if time.time() - start_time > timeout:
                 # 清理缓存
                 self._cleanup(session_id)
+                PromptServer.instance.send_sync(
+                    "image_selector.interrupted",
+                    {"reason": f"图片选择超时（{timeout}秒），工作流已中断", "node_id": unique_id}
+                )
                 interrupt_processing()
                 return (torch.zeros(1, 1, 1, 3),)
             time.sleep(0.1)
@@ -220,6 +224,10 @@ class ImageSelector:
         
         if cancelled or not selected_indices:
             # 用户取消或未选择任何图片 -> 静默中断整个工作流
+            PromptServer.instance.send_sync(
+                "image_selector.interrupted",
+                {"reason": "没有图片被选择，工作流已中断", "node_id": unique_id}
+            )
             interrupt_processing()
             return (torch.zeros(1, 1, 1, 3),)
         

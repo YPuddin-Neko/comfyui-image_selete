@@ -623,6 +623,47 @@ const STYLES = `
         padding-right: 16px;
     }
 }
+
+/* ===== Toast 提示 ===== */
+.image-selector-toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 1px solid rgba(255, 160, 0, 0.3);
+    border-radius: 12px;
+    padding: 14px 24px;
+    color: #ffc107;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 160, 0, 0.1);
+    z-index: 100001;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: isToastIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    max-width: 500px;
+}
+
+.image-selector-toast.fade-out {
+    animation: isToastOut 0.3s ease-in forwards;
+}
+
+@keyframes isToastIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes isToastOut {
+    from { opacity: 1; transform: translateX(-50%) translateY(0); }
+    to { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+}
+
+.image-selector-toast-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
 `;
 
 // ============================
@@ -634,6 +675,23 @@ function injectStyles() {
     styleEl.id = "image-selector-styles";
     styleEl.textContent = STYLES;
     document.head.appendChild(styleEl);
+}
+
+// ============================
+// Toast 提示
+// ============================
+function showToast(message, duration = 5000) {
+    injectStyles();
+    
+    const toast = document.createElement("div");
+    toast.className = "image-selector-toast";
+    toast.innerHTML = `<span class="image-selector-toast-icon">⚠️</span><span>${message}</span>`;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.add("fade-out");
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
 }
 
 // ============================
@@ -1118,6 +1176,13 @@ app.registerExtension({
             );
             
             dialog.show();
+        });
+        
+        // 监听中断原因消息，显示 toast 提示
+        api.addEventListener("image_selector.interrupted", (event) => {
+            const { reason } = event.detail;
+            console.log(`[Image Selector] 工作流中断: ${reason}`);
+            showToast(reason);
         });
     },
 
