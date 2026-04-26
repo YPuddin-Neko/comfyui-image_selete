@@ -208,6 +208,7 @@ class ImageSelector:
                 # 清理缓存
                 self._cleanup(session_id)
                 interrupt_processing()
+                return (torch.zeros(1, 1, 1, 3),)
             time.sleep(0.1)
         
         # 检查是否取消
@@ -220,6 +221,7 @@ class ImageSelector:
         if cancelled or not selected_indices:
             # 用户取消或未选择任何图片 -> 静默中断整个工作流
             interrupt_processing()
+            return (torch.zeros(1, 1, 1, 3),)
         
         # 根据选择索引提取图片
         selected_images = torch.stack([images[i] for i in selected_indices])
