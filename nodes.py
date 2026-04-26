@@ -15,7 +15,7 @@ from PIL import Image
 from aiohttp import web
 
 from server import PromptServer
-from comfy_execution.graph import ExecutionBlocker
+from nodes import interrupt_processing
 
 # ============================
 # 全局图片缓存（用于前后端通信）
@@ -207,7 +207,7 @@ class ImageSelector:
             if time.time() - start_time > timeout:
                 # 清理缓存
                 self._cleanup(session_id)
-                return (ExecutionBlocker(f"图片选择超时（{timeout}秒）"),)
+                interrupt_processing()
             time.sleep(0.1)
         
         # 检查是否取消
@@ -218,8 +218,8 @@ class ImageSelector:
         self._cleanup(session_id)
         
         if cancelled or not selected_indices:
-            # 用户取消或未选择任何图片 -> 静默中断工作流
-            return (ExecutionBlocker("没有图片被选择"),)
+            # 用户取消或未选择任何图片 -> 静默中断整个工作流
+            interrupt_processing()
         
         # 根据选择索引提取图片
         selected_images = torch.stack([images[i] for i in selected_indices])
