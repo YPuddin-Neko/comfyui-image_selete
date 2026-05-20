@@ -93,6 +93,18 @@ async def submit_selection(request):
     return web.json_response({"status": "ok"})
 
 
+@PromptServer.instance.routes.get("/image_selector/pending_sessions")
+async def get_pending_sessions(request):
+    """返回所有待处理的选择会话（selected 仍为 None 的会话）"""
+    pending = []
+    for session_id, cache in IMAGE_CACHE.items():
+        if cache["selected"] is None and not cache.get("cancelled", False):
+            params = cache.get("dialog_params")
+            if params:
+                pending.append(params)
+    return web.json_response({"sessions": pending})
+
+
 @PromptServer.instance.routes.get("/image_selector/sound/{filename}")
 async def get_sound_file(request):
     """提供提示音文件的访问"""
@@ -174,11 +186,20 @@ class ImageSelector:
         # 生成会话 ID
         session_id = f"{unique_id}_{uuid.uuid4().hex[:8]}"
         
-        # 缓存图片
+        # 缓存图片和弹窗参数
         IMAGE_CACHE[session_id] = {
             "images": images,
             "selected": None,
             "cancelled": False,
+            "dialog_params": {
+                "session_id": session_id,
+                "total_images": batch_size,
+                "node_id": unique_id,
+                "sound_enabled": sound_enabled,
+                "sound_volume": sound_volume,
+                "sound_file": "din.wav",
+                "timeout": timeout,
+            },
         }
         
         # 创建异步事件
@@ -247,10 +268,15 @@ class ImageSelector:
 # ============================
 # 节点注册
 # ============================
+from .save_image_plus import NODE_CLASS_MAPPINGS as SAVE_CLASS_MAPPINGS
+from .save_image_plus import NODE_DISPLAY_NAME_MAPPINGS as SAVE_DISPLAY_MAPPINGS
+
 NODE_CLASS_MAPPINGS = {
     "ImageSelector": ImageSelector,
+    **SAVE_CLASS_MAPPINGS,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "ImageSelector": "🖼️ Image Selector | 图片选择器",
+    **SAVE_DISPLAY_MAPPINGS,
 }

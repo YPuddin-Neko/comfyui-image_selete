@@ -9,6 +9,8 @@
 
 ## ✨ 功能特点
 
+### 🖼️ Image Selector | 图片选择器
+
 - **始终弹窗** - 无论输入是单张还是多张图片，都会弹出选择窗口
 - **大图预览** - 图片以大尺寸完整展示；点击 🔍 按钮或双击可查看原尺寸大图
 - **卡片大小可调** - 工具栏提供滑块，可自由拖动调整图片卡片大小（150px~600px）
@@ -17,7 +19,23 @@
 - **自定义提示音** - 提示音文件硬编码为 `sound/din.wav`，可替换为自己的音频
 - **超时可配置** - 支持在节点上手动设置选择超时时间（10~3600秒）
 - **安全中断** - 取消选择或不选择任何图片时，工作流会自动中断，不会继续执行
+- **页面切换恢复** - 切换到其他工作流再切回来，待处理的选择弹窗会自动恢复
+- **多用户隔离** - 多用户/多标签页场景下弹窗只在对应工作流页面显示
 - **优雅动画** - 流畅的弹窗动画和交互效果
+
+### 💾 Save Image Plus | 保存图像增强版
+
+> 📌 此节点的图片保存功能移植自 [ComfyUI-Danbooru-Gallery](https://github.com/Aaalice233/ComfyUI-Danbooru-Gallery) 的 SaveImagePlus 节点，在此基础上进行了独立实现和改进（移除外部依赖、增强种子读取兼容性、修复子工作流保存等）。感谢原作者的工作！
+
+- **多格式保存** - 支持 PNG / JPEG / WEBP 三种格式
+- **A1111 元数据** - 自动生成 A1111 格式的元数据（提示词、生成参数、模型信息等）
+- **LoRA/Checkpoint 哈希** - 自动计算模型 SHA256 哈希，多 LoRA 并行计算
+- **文件名占位符** - 支持 `%date:yyyyMMdd%`、`%seed%`、`%model%` 动态文件名
+- **工作流嵌入** - PNG 格式可嵌入完整 ComfyUI 工作流数据
+- **纯净副本** - 可额外保存无元数据的纯净图片副本
+- **元数据智能收集** - 四级降级策略：手动传入 → 直接输入 → 自动解析节点 → 提取文本
+- **子工作流兼容** - 在 Group Node（子工作流）中也能正常保存图片
+- **广泛的种子读取** - 支持标准 KSampler、Easy-use、Efficiency、Impact 等多种采样器节点的种子提取
 
 ## 📦 安装
 
@@ -32,6 +50,8 @@ git clone https://github.com/YPuddin-Neko/comfyui-image_selete
 
 ## 🚀 使用方法
 
+### 图片选择器
+
 1. 在 ComfyUI 中，右键画布 → 添加节点 → `image/utils` → `🖼️ Image Selector | 图片选择器`
 2. 将图片输出连接到该节点的 `images` 输入端
 3. 可选：调整提示音开关、音量和超时时间
@@ -41,7 +61,17 @@ git clone https://github.com/YPuddin-Neko/comfyui-image_selete
 
 > ⚠️ **注意**：点击「✕ 取消」或不选择任何图片将**中断工作流**，不会继续执行。
 
+### 保存图像增强版
+
+1. 右键画布 → 添加节点 → `image/utils` → `💾 Save Image Plus | 保存图像增强版`
+2. 将图片连接到 `images` 输入端（可搭配图片选择器使用）
+3. 可选：连接 `positive_prompt`、`negative_prompt`、`lora_syntax`、`checkpoint_name` 输入
+4. 设置文件名前缀（支持占位符）、保存格式和质量
+5. 运行工作流，图片自动保存到 ComfyUI 输出目录
+
 ## 📸 节点参数
+
+### 🖼️ Image Selector
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
@@ -51,6 +81,32 @@ git clone https://github.com/YPuddin-Neko/comfyui-image_selete
 | timeout | INT | 300 | 图片选择超时时间（秒），范围 10 ~ 3600 |
 
 **输出端**：`images`（IMAGE 类型）- 用户选中的图片
+
+### 💾 Save Image Plus
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| images | IMAGE | - | 要保存的图片 |
+| enable | BOOLEAN | True | 是否启用保存 |
+| filename_prefix | STRING | "ComfyUI" | 文件名前缀，支持 `%date%` `%seed%` `%model%` 占位符 |
+| file_format | COMBO | "PNG" | 保存格式：PNG / JPEG / WEBP |
+| quality | INT | 100 | JPEG/WEBP 质量（1-100） |
+| embed_workflow | BOOLEAN | True | 是否嵌入工作流数据（仅 PNG） |
+| save_clean_copy | BOOLEAN | False | 额外保存无元数据的纯净副本 |
+| enable_preview | BOOLEAN | False | 是否在界面显示预览 |
+| positive_prompt | STRING | - | 正面提示词（可选，连线输入） |
+| negative_prompt | STRING | - | 负面提示词（可选，连线输入） |
+| lora_syntax | STRING | - | LoRA 语法字符串（可选，连线输入） |
+| checkpoint_name | STRING | - | 手动指定 Checkpoint 名称（最高优先级） |
+
+#### 文件名占位符
+
+| 占位符 | 说明 | 示例 |
+|--------|------|------|
+| `%date%` | 日期时间（默认 yyyyMMddhhmmss） | 20250520204500 |
+| `%date:yyyyMMdd%` | 自定义日期格式 | 20250520 |
+| `%seed%` | 生成 Seed 值 | 1234567890 |
+| `%model%` | Checkpoint 模型名称 | animagine-xl |
 
 ## 🎛️ 弹窗操作说明
 
@@ -74,7 +130,8 @@ git clone https://github.com/YPuddin-Neko/comfyui-image_selete
 ```
 comfyui-image_selete/
 ├── __init__.py              # 插件入口
-├── nodes.py                 # 节点定义 & 后端逻辑
+├── nodes.py                 # 图片选择器节点 & 后端逻辑
+├── save_image_plus.py       # 保存图像增强版节点
 ├── web/
 │   └── js/
 │       └── imageSelector.js # 前端弹窗 UI
