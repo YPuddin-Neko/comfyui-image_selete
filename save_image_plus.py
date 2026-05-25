@@ -109,6 +109,14 @@ class SaveImagePlus:
                     "default": False,
                     "tooltip": "保存同名 .txt 文件，包含正向提示词（适合训练数据集）"
                 }),
+                "use_custom_path": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "开启后使用自定义保存路径，关闭时使用 ComfyUI 默认输出目录"
+                }),
+                "custom_save_path": ("STRING", {
+                    "default": "",
+                    "tooltip": "自定义保存路径（仅当 use_custom_path 开启时生效），支持绝对路径"
+                }),
             },
             "optional": {
                 "positive_prompt": ("STRING", {
@@ -601,6 +609,7 @@ class SaveImagePlus:
                     file_format="PNG", quality=100, embed_workflow=True,
                     save_clean_copy=False, enable_preview=False,
                     save_prompt_txt=False,
+                    use_custom_path=False, custom_save_path="",
                     positive_prompt=None, negative_prompt=None,
                     lora_syntax=None, checkpoint_name=None,
                     prompt=None, extra_pnginfo=None):
@@ -627,22 +636,31 @@ class SaveImagePlus:
         filename_prefix += self.prefix_append
         filename_prefix = self.format_filename(filename_prefix, prompt_obj=prompt, metadata=metadata)
 
-        # 强制使用最新的输出目录（兼容子工作流场景）
-        # 子工作流中 self.output_dir 可能在初始化时被缓存了旧值
-        output_dir = folder_paths.get_output_directory()
-
-        try:
-            full_output_folder, filename, counter, subfolder, filename_prefix = \
-                folder_paths.get_save_image_path(filename_prefix, output_dir, images[0].shape[1], images[0].shape[0])
-        except Exception:
-            # 子工作流中 get_save_image_path 可能失败，回退到直接构造路径
+        # 根据开关选择保存目录
+        if use_custom_path and custom_save_path.strip():
+            # 使用用户指定的自定义路径
+            output_dir = custom_save_path.strip()
+            os.makedirs(output_dir, exist_ok=True)
+            # 自定义路径模式：直接在指定目录下保存
             full_output_folder = output_dir
             filename = filename_prefix
-            counter = 1
             subfolder = ""
             # 查找已存在的文件数来确定 counter
             existing = [f for f in os.listdir(full_output_folder) if f.startswith(filename)] if os.path.exists(full_output_folder) else []
             counter = len(existing) + 1
+        else:
+            # 使用 ComfyUI 默认输出目录
+            output_dir = folder_paths.get_output_directory()
+            try:
+                full_output_folder, filename, counter, subfolder, filename_prefix = \
+                    folder_paths.get_save_image_path(filename_prefix, output_dir, images[0].shape[1], images[0].shape[0])
+            except Exception:
+                full_output_folder = output_dir
+                filename = filename_prefix
+                counter = 1
+                subfolder = ""
+                existing = [f for f in os.listdir(full_output_folder) if f.startswith(filename)] if os.path.exists(full_output_folder) else []
+                counter = len(existing) + 1
 
         os.makedirs(full_output_folder, exist_ok=True)
 

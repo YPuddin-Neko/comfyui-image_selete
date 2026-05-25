@@ -1,6 +1,6 @@
-# 🖼️ ComfyUI Image Selete | 图片选择器
+# 🛠️ ComfyUI Image Tools | 图片工具箱
 
-一个 ComfyUI 自定义节点插件(代码均为AI生成)，在工作流执行时弹出精美的图片选择窗口，让你手动选择需要的图片以便进行接下来的工作流。
+一个 ComfyUI 自定义节点插件(代码均为AI生成)，包含图片选择器和增强版图片保存等实用工具。
 
 ## 🖼️ 例图
 
@@ -128,7 +128,7 @@ git clone https://github.com/YPuddin-Neko/comfyui-image_tools
 ## 📁 文件结构
 
 ```
-comfyui-image_selete/
+comfyui-image_tools/
 ├── __init__.py              # 插件入口
 ├── nodes.py                 # 图片选择器节点 & 后端逻辑
 ├── save_image_plus.py       # 保存图像增强版节点
