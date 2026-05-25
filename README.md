@@ -43,7 +43,7 @@
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/YPuddin-Neko/comfyui-image_selete
+git clone https://github.com/YPuddin-Neko/comfyui-image_tools
 ```
 
 重启 ComfyUI 即可使用。
