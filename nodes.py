@@ -220,12 +220,15 @@ class ImageSelector:
             }
         )
         
-        # 同步等待用户选择（使用 polling）
+        # 同步等待用户选择（使用 polling + tick 广播）
         import time
         start_time = time.time()
+        last_tick_time = 0
+        TICK_INTERVAL = 2  # 每2秒广播一次 tick，确保切换回来时前端能恢复弹窗
         
         while IMAGE_CACHE[session_id]["selected"] is None:
-            if time.time() - start_time > timeout:
+            elapsed = time.time() - start_time
+            if elapsed > timeout:
                 # 清理缓存
                 self._cleanup(session_id)
                 PromptServer.instance.send_sync(
@@ -234,6 +237,26 @@ class ImageSelector:
                 )
                 interrupt_processing()
                 return (torch.zeros(1, 1, 1, 3),)
+            
+            # 定期广播 tick 消息，前端收到后会检查弹窗是否已打开
+            # 这是确保用户切换工作流再切回来时弹窗能恢复的关键机制
+            if time.time() - last_tick_time >= TICK_INTERVAL:
+                remaining = int(timeout - elapsed)
+                PromptServer.instance.send_sync(
+                    "image_selector.tick",
+                    {
+                        "session_id": session_id,
+                        "node_id": unique_id,
+                        "remaining": remaining,
+                        "total_images": batch_size,
+                        "sound_enabled": sound_enabled,
+                        "sound_volume": sound_volume,
+                        "sound_file": "din.wav",
+                        "timeout": timeout,
+                    }
+                )
+                last_tick_time = time.time()
+            
             time.sleep(0.1)
         
         # 检查是否取消

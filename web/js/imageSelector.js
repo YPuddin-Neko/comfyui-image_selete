@@ -1151,103 +1151,57 @@ app.registerExtension({
     name: "comfyui.image_selector",
     
     async setup() {
-        // 监听后端发来的弹窗消息
         // 跟踪已打开的弹窗会话，防止重复弹出
         const activeDialogSessions = new Set();
-        // 标记是否有错过的弹窗（页面不可见时收到的消息）
-        let hasMissedDialog = false;
         
-        // 监听后端发来的弹窗消息
-        api.addEventListener("image_selector.show_dialog", (event) => {
-            const {
-                session_id,
-                total_images,
-                node_id,
-                sound_enabled,
-                sound_volume,
-                sound_file,
-                timeout,
-            } = event.detail;
+        // 打开弹窗的通用函数
+        function openDialog(session_id, total_images, node_id, sound_enabled, sound_volume, sound_file, timeout, playSound = true) {
+            if (activeDialogSessions.has(session_id)) return;
             
-            // 检查该节点是否属于当前工作流，防止多客户端/多标签页重复弹窗
+            // 检查该节点是否属于当前工作流
             const node = app.graph.getNodeById(node_id);
-            if (!node || node.comfyClass !== "ImageSelector") {
-                // 节点不在当前图中，可能是页面不可见或属于其他用户
-                // 标记为错过，切回页面时再检查
-                hasMissedDialog = true;
-                return;
-            }
+            if (!node || node.comfyClass !== "ImageSelector") return;
             
-            console.log(`[Image Selector] 收到弹窗请求: session=${session_id}, images=${total_images}, timeout=${timeout}s`);
+            console.log(`[Image Selector] 弹出选择窗口: session=${session_id}`);
             activeDialogSessions.add(session_id);
             
             const dialog = new ImageSelectorDialog(
                 session_id,
                 total_images,
                 node_id,
-                sound_enabled,
+                playSound ? sound_enabled : false,
                 sound_volume,
                 sound_file,
                 timeout
             );
             
             dialog.show();
-        });
-        
-        // 监听中断原因消息，显示 toast 提示
-        api.addEventListener("image_selector.interrupted", (event) => {
-            const { reason, node_id } = event.detail;
-            
-            // 检查该节点是否属于当前工作流
-            const node = app.graph.getNodeById(node_id);
-            if (!node || node.comfyClass !== "ImageSelector") return;
-            
-            console.log(`[Image Selector] 工作流中断: ${reason}`);
-            showToast(reason);
-        });
-        
-        // 检查待处理的选择会话
-        async function checkPendingSessions() {
-            try {
-                const resp = await api.fetchApi("/image_selector/pending_sessions");
-                const data = await resp.json();
-                
-                if (!data.sessions || data.sessions.length === 0) return;
-                
-                for (const params of data.sessions) {
-                    // 跳过已打开弹窗的会话
-                    if (activeDialogSessions.has(params.session_id)) continue;
-                    
-                    // 检查节点是否属于当前工作流
-                    const node = app.graph.getNodeById(params.node_id);
-                    if (!node || node.comfyClass !== "ImageSelector") continue;
-                    
-                    console.log(`[Image Selector] 恢复待处理弹窗: session=${params.session_id}`);
-                    activeDialogSessions.add(params.session_id);
-                    
-                    const dialog = new ImageSelectorDialog(
-                        params.session_id,
-                        params.total_images,
-                        params.node_id,
-                        params.sound_enabled,
-                        params.sound_volume,
-                        params.sound_file,
-                        params.timeout
-                    );
-                    
-                    dialog.show();
-                }
-            } catch (err) {
-                console.warn("[Image Selector] 检查待处理会话失败:", err.message);
-            }
         }
         
-        // 页面可见性变化时，仅在有错过的弹窗时才查询
-        document.addEventListener("visibilitychange", () => {
-            if (document.visibilityState === "visible" && hasMissedDialog) {
-                hasMissedDialog = false;
-                checkPendingSessions();
-            }
+        // 监听后端发来的初始弹窗消息
+        api.addEventListener("image_selector.show_dialog", (event) => {
+            const { session_id, total_images, node_id, sound_enabled, sound_volume, sound_file, timeout } = event.detail;
+            openDialog(session_id, total_images, node_id, sound_enabled, sound_volume, sound_file, timeout, true);
+        });
+        
+        // 监听后端的 tick 心跳消息（核心恢复机制）
+        // 后端等待期间每2秒广播一次 tick，如果用户切换工作流再切回来，
+        // 收到 tick 时发现弹窗未打开就自动弹出
+        api.addEventListener("image_selector.tick", (event) => {
+            const { session_id, node_id, remaining, total_images, sound_enabled, sound_volume, sound_file, timeout } = event.detail;
+            
+            if (activeDialogSessions.has(session_id)) return;
+            
+            // 弹窗未打开 → 恢复弹出（不播放提示音）
+            openDialog(session_id, total_images, node_id, sound_enabled, sound_volume, sound_file, remaining, false);
+        });
+        
+        // 监听中断原因消息
+        api.addEventListener("image_selector.interrupted", (event) => {
+            const { reason, node_id } = event.detail;
+            const node = app.graph.getNodeById(node_id);
+            if (!node || node.comfyClass !== "ImageSelector") return;
+            showToast(reason);
         });
     },
 
@@ -1258,3 +1212,4 @@ app.registerExtension({
         }
     },
 });
+
